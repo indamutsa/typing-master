@@ -1,36 +1,144 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# TypeMaster
+
+AI-powered typing trainer that adapts to the keys you actually struggle with.
+
+**Live:** [typing-master-dun.vercel.app](https://typing-master-dun.vercel.app)
+
+Unlike generic speed tests, TypeMaster tracks per-key error rates across sessions, identifies your weakest keys, and uses AI to generate targeted drill paragraphs that hammer exactly those characters. The result is a focused training loop: type, expose weaknesses, generate AI drills that target them, repeat.
+
+## Modes
+
+| Mode | Route | Description |
+|------|-------|-------------|
+| **Practice** | `/practice` | AI-generated drill text targeting your top-5 weak keys. No timer — session ends when the passage is complete. |
+| **Test** | `/test` | Timed typing test (30s / 60s / custom). Countdown runs in the HUD. Results show WPM and accuracy. |
+| **Free** | `/free` | Paste or type any text, then type it back. No timer. Useful for domain-specific vocabulary. |
+
+## Features
+
+- **Char-by-char highlighting** — correct (green), error (red), current (cursor), pending (muted)
+- **Live HUD** — WPM, accuracy %, streak counter, and timer updated every keystroke
+- **Keyboard heatmap** — QWERTY layout colored by error rate, top-N weak keys highlighted
+- **Results modal** — post-session WPM, accuracy, time, characters, and top struggling keys
+- **AI drill generation** — builds a prompt from your weak keys, generates a 200-word paragraph via DeepSeek/OpenAI/Anthropic
+- **Per-key stats** — attempts + errors tracked per key, persisted across sessions
+- **Auth** — register/login with credentials, JWT sessions
+- **Dashboard** — session history, accuracy trends, per-key breakdown charts
+
+## Tech Stack
+
+- **Framework:** Next.js 14 (App Router) + TypeScript
+- **Styling:** Tailwind CSS (dark theme, JetBrains Mono)
+- **State:** Zustand with localStorage persistence
+- **Database:** Neon Postgres via `@neondatabase/serverless`
+- **ORM:** Drizzle ORM with `drizzle-kit` for schema management
+- **Auth:** NextAuth.js v5 (credentials provider, JWT strategy)
+- **AI:** DeepSeek / OpenAI / Anthropic (configurable in settings)
+- **Charts:** Recharts
+- **Hosting:** Vercel
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js 20+
+- A Neon Postgres database (free tier: [neon.tech](https://neon.tech))
+
+### Setup
 
 ```bash
+# Install dependencies
+npm install
+
+# Copy env template and fill in your values
+cp .env.example .env.local
+
+# Push the database schema to Neon
+npm run db:push
+
+# Start the dev server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Environment Variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DATABASE_URL` | Yes | Neon Postgres connection string |
+| `NEXTAUTH_SECRET` | Yes | Random string for signing JWTs (`openssl rand -base64 32`) |
+| `NEXTAUTH_URL` | Dev only | `http://localhost:3000` (auto-detected on Vercel) |
+| `DEEPSEEK_API_KEY` | No | DeepSeek API key for AI drill generation |
+| `OPENAI_API_KEY` | No | OpenAI API key (alternative provider) |
+| `ANTHROPIC_API_KEY` | No | Anthropic API key (alternative provider) |
 
-## Learn More
+At least one AI provider key is needed for Practice mode. Without it, a curated fallback passage is used.
 
-To learn more about Next.js, take a look at the following resources:
+## Scripts
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start development server |
+| `npm run build` | Production build |
+| `npm run start` | Start production server |
+| `npm run lint` | Run ESLint |
+| `npm run db:push` | Push Drizzle schema to Postgres |
+| `npm run db:studio` | Open Drizzle Studio (DB browser) |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Project Structure
 
-## Deploy on Vercel
+```
+src/
+  app/
+    page.tsx                  # Mode selector (home)
+    practice/page.tsx         # AI-generated drill mode
+    test/page.tsx             # Timed typing test
+    free/page.tsx             # User-supplied text mode
+    dashboard/page.tsx        # Session history + charts
+    login/page.tsx            # Login form
+    register/page.tsx         # Registration form
+    api/
+      auth/                   # NextAuth + registration
+      drill/                  # AI text generation
+      keystats/               # Per-key stats CRUD
+      sessions/               # Session records CRUD
+      settings/               # User settings CRUD
+      migrate/                # localStorage → DB migration
+  components/
+    TextDisplay.tsx           # Char-by-char passage renderer
+    HUD.tsx                   # Live WPM / accuracy / timer bar
+    KeyHeatmap.tsx            # QWERTY keyboard heatmap
+    ResultsModal.tsx          # Post-session results
+    ModeSelector.tsx          # Home page mode cards
+    SettingsDrawer.tsx        # API key + preferences panel
+    DashboardCharts.tsx       # Recharts visualizations
+  store/
+    session.ts                # Live typing session state
+    keyStats.ts               # Per-key error tracking
+    settings.ts               # User preferences
+  lib/
+    db.ts                     # Neon Postgres connection
+    schema.ts                 # Drizzle ORM table definitions
+    auth.ts                   # NextAuth configuration
+    ai.ts                     # AI drill text generation
+    typing.ts                 # WPM / accuracy helpers
+    keymap.ts                 # QWERTY layout constant
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Testing
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+# Run Playwright e2e tests (55 tests)
+npx playwright test
+
+# Run with visible browser
+npx playwright test --headed
+
+# View test report
+npx playwright show-report
+```
+
+## License
+
+MIT
